@@ -7,16 +7,17 @@ int exp_table[256];
 int log_table[256];
 int GF=8;
 int PP=11;
+// åœ¨Galois Fieldä¸­çš„åŠ æ³•
 int add(int a, int b)
 {
 	return a ^ b;
 }
-// ¦bGalois Field¤¤ªº´îªk
+// åœ¨Galois Fieldä¸­çš„æ¸›æ³•
 int subtract(int a, int b)
 {
 	return a ^ b;
 }
-// ¦bGalois Field¤¤ªº­¼ªk
+// åœ¨Galois Fieldä¸­çš„ä¹˜æ³•
 int multiply(int a, int b)
 {
 	if(a==0||b==0)
@@ -24,7 +25,7 @@ int multiply(int a, int b)
 	else
 		return exp_table[(log_table[a] + log_table[b]) % (GF-1)];
 }
-// ¦bGalois Field¤¤ªº°£ªk
+// åœ¨Galois Fieldä¸­çš„é™¤æ³•
 int divide(int a, int b)
 {
 	if (b == 0)
@@ -45,7 +46,7 @@ int main()
 			exp_table[i] ^= PP;
 		log_table[exp_table[i]] = i;
 	}
-	cout<<"¥[ªkªí:"<<endl<<"  0 1 2 3 4 5 6 7"<<endl<<"  ---------------"<<endl; 
+	cout<<"åŠ æ³•è¡¨:"<<endl<<"  0 1 2 3 4 5 6 7"<<endl<<"  ---------------"<<endl; 
 	for(int i=0;i<GF;i++)
 	{
 		cout<<i<<"|";
@@ -55,7 +56,7 @@ int main()
 		}
 		cout<<endl;	
 	}
-	cout<<"­¼ªkªí:"<<endl<<"  0 1 2 3 4 5 6 7"<<endl<<"  ---------------"<<endl; 
+	cout<<"ä¹˜æ³•è¡¨:"<<endl<<"  0 1 2 3 4 5 6 7"<<endl<<"  ---------------"<<endl; 
 	for(int i=0;i<GF;i++)
 	{
 		cout<<i<<"|";
@@ -68,7 +69,7 @@ int main()
 	int a,b;
 	while(1)
 	{
-		cout<<"½Ð¿é¤Ja,b: ";
+		cout<<"è«‹è¼¸å…¥a,b: ";
 		cin>>a>>b;
 		cout<<"a+b="<<add(a,b)<<endl;
 		cout<<"a-b="<<subtract(a,b)<<endl;
