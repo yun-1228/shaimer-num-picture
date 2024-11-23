@@ -19,10 +19,11 @@ int p[100];
 int exp_table[256];
 int log_table[256];
 int data[1000]={0};
-int ****datap;
+int ****datap ;
+int n1=0;
 const int size = 256; // GF(2^3)中的元素數量 8
-int GF=256;
-int PP=301;
+int GF=256; //8  //256
+int PP=299; //11 //299
 //---------------------------------------------------------------------------
 __fastcall TForm1::TForm1(TComponent* Owner)
 	: TForm(Owner)
@@ -78,7 +79,7 @@ void releaseDatap(int ****&datap, int width, int height, int shares)
         delete[] datap[i];
     }
     delete[] datap;
-    datap = nullptr;  // 避免懸掛指標
+	datap = nullptr;  // 避免懸掛指標
 }
 # define K  (TColor)RGB(0 , 0 , 0)
 # define W  (TColor)RGB(255 , 255 , 255)
@@ -140,7 +141,7 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 		p[i]=rand()%GF;
 		if(p[i]!=0)
 		{
-			Memo1 -> Lines -> Add(IntToStr(i)+","+IntToStr(p[i]));
+			//Memo1 -> Lines -> Add(IntToStr(i)+","+IntToStr(p[i]));
 			i++;
 		}
 	}
@@ -163,7 +164,7 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 				data[i]=add(data[i],multiply(m, p[j-1]));
 			}
 		}
-		Memo1 -> Lines -> Add("("+IntToStr(i)+","+IntToStr(data[i])+")");
+		Memo1 -> Lines -> Add("("+IntToStr(i)+" , "+IntToStr(data[i])+")");
 	}
 	ListBox1->Clear();
 	for (int i=1; i<=n; i++)
@@ -172,10 +173,8 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TForm1::Button2Click(TObject *Sender)
 {
-	int secret=StrToInt(Edit1->Text);
-	int n=StrToInt(Edit2->Text);
+    int n=StrToInt(Edit2->Text);
 	int k=StrToInt(Edit3->Text);
-	int t=StrToInt(Edit4->Text);
 	if(n<k)
 	{
 		ShowMessage("n應大於等於k");
@@ -186,7 +185,7 @@ void __fastcall TForm1::Button2Click(TObject *Sender)
 	{
 		if(ListBox1->Selected[i])
 		{
-			Memo1 -> Lines -> Add("("+IntToStr(i+1)+","+IntToStr(data[i+1])+")");
+			Memo1 -> Lines -> Add("("+IntToStr(i+1)+" , "+IntToStr(data[i+1])+")");
 		}
 	}
 	int s=0;
@@ -253,20 +252,21 @@ void __fastcall TForm1::ListBox2Click(TObject *Sender)
 
 void __fastcall TForm1::Button4Click(TObject *Sender)
 {
-	int i , j , gray , rr , gg , bb;
-	int n=StrToInt(Edit5->Text);
-	int k=StrToInt(Edit6->Text);
 	Y = new Graphics::TBitmap();
 	Y -> Width = BMP -> Width;
 	Y -> Height = BMP -> Height;
 	if (datap != nullptr)
 	{
-		releaseDatap(datap, BMP->Height, BMP->Width, n); // 釋放之前分配的空間
+		releaseDatap(datap, BMP->Height, BMP->Width, n1); // 釋放之前分配的空間
+		ShowMessage("釋放");
 	}
+	int n=StrToInt(Edit5->Text);
+	int k=StrToInt(Edit6->Text);
+	n1=n;
 	allocateDatap(datap, BMP->Height, BMP->Width, n, 3); // 分配所需的空間
-	for (i=0 ; i<BMP->Height ; i++)
+	for (int i=0 ; i<BMP->Height ; i++)
 	{
-		for (j=0 ; j<BMP->Width ; j++)
+		for (int j=0 ; j<BMP->Width ; j++)
 		{
 			int a[3];
 			a[0]=GetRValue(BMP -> Canvas -> Pixels[j][i]); //R
@@ -308,9 +308,9 @@ void __fastcall TForm1::Button4Click(TObject *Sender)
 	ListBox2->Clear();
 	for (int i=1; i<=n; i++)
 		ListBox2->Items->Add("Share "+IntToStr(i));
-	for (i=0 ; i<BMP->Height ; i++)
+	for (int i=0 ; i<BMP->Height ; i++)
 	{
-		for (j=0 ; j<BMP->Width ; j++)
+		for (int j=0 ; j<BMP->Width ; j++)
 		{
 			Y -> Canvas -> Pixels[j][i] = (TColor)RGB(datap[j][i][0][0], datap[j][i][0][1], datap[j][i][0][2]);
 		}
@@ -340,8 +340,6 @@ void __fastcall TForm1::Button6Click(TObject *Sender)
 
 void __fastcall TForm1::Button5Click(TObject *Sender)
 {
-	int n=StrToInt(Edit5->Text);
-	int k=StrToInt(Edit6->Text);
 	int rr,gg,bb;
 	M = new Graphics::TBitmap();
 	M -> Width = BMP -> Width;
@@ -352,11 +350,6 @@ void __fastcall TForm1::Button5Click(TObject *Sender)
 		{
 			M -> Canvas -> Pixels[j][i] = (TColor)RGB(0, 0, 0);
 		}
-	}
-	if(n<k)
-	{
-		ShowMessage("n應大於等於k");
-		return;
 	}
 	for (int i=0; i<ListBox2->Count; i++)
 	{
@@ -378,6 +371,7 @@ void __fastcall TForm1::Button5Click(TObject *Sender)
 								temp1=divide(multiply(temp1,j+1),subtract(i+1, j+1));
 								temp2=divide(multiply(temp2,j+1),subtract(i+1, j+1));
 								temp3=divide(multiply(temp3,j+1),subtract(i+1, j+1));
+								//Memo1 -> Lines -> Add(IntToStr(temp1)+","+IntToStr(temp2)+","+IntToStr(temp3));
 							}
 						}
 					}
