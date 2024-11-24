@@ -16,32 +16,45 @@ int indexZ = 0;
 #pragma resource "*.dfm"
 TForm1 *Form1;
 int p[100];
-int exp_table[256];
-int log_table[256];
+int exp_table1[8];
+int log_table1[8];
+int exp_table2[256];
+int log_table2[256];
 int data[1000]={0};
 int ****datap ;
 int n1=0;
-const int size = 256; // GF(2^3)中的元素數量 8
-int GF=256; //8  //256
-int PP=299; //11 //299
+int c=1;
+int GF[2] = {8, 256};  // 使用大括號進行初始化
+int PP[2] = {11, 285};
 //---------------------------------------------------------------------------
 __fastcall TForm1::TForm1(TComponent* Owner)
 	: TForm(Owner)
 {
+	PageControl1->ActivePage = TabSheet1;
+    PageControl2->ActivePage = TabSheet2;
     Z = new Graphics::TBitmap * [SIZE];
 	for (int i = 0 ; i < SIZE ; i++)
 	{
 		Z[i] = new Graphics::TBitmap();
 		Z[i] -> PixelFormat = pf24bit;
 	}
-	exp_table[0] = 1;
-	log_table[0] = 1-GF;
-	for (int i = 1; i < GF; i++)
+	exp_table1[0] = 1;
+	log_table1[0] = 1-GF[0];
+	for (int i = 1; i < GF[0]; i++)
 	{
-		exp_table[i] = exp_table[i-1] <<1;
-		if (exp_table[i] >= GF)
-			exp_table[i] ^= PP;
-		log_table[exp_table[i]] = i;
+		exp_table1[i] = exp_table1[i-1] <<1;
+		if (exp_table1[i] >= GF[0])
+			exp_table1[i] ^= PP[0];
+		log_table1[exp_table1[i]] = i;
+	}
+	exp_table2[0] = 1;
+	log_table2[0] = 1-GF[1];
+	for (int i = 1; i < GF[1]; i++)
+	{
+		exp_table2[i] = exp_table2[i-1] <<1;
+		if (exp_table2[i] >= GF[1])
+			exp_table2[i] ^= PP[1];
+		log_table2[exp_table2[i]] = i;
 	}
 }
 void resetSeed()
@@ -83,17 +96,6 @@ void releaseDatap(int ****&datap, int width, int height, int shares)
 }
 # define K  (TColor)RGB(0 , 0 , 0)
 # define W  (TColor)RGB(255 , 255 , 255)
-void AddToListBox(Graphics::TBitmap * Y, String PName)
-{
-	Form1 -> ListBox1 -> Items -> Add(PName);
-	Z[indexZ] = Y;
-	Z[indexZ] -> Width = Y -> Width;
-	Z[indexZ] -> Height = Y -> Height;
-	if (++indexZ > SIZE)
-	{	Form1 -> Memo1 -> Lines -> Add("Image SIZE overflow!");
-		Form1 -> TabSheet2 -> Show();
-	}
-}
 // 在Galois Field中的加法
 int add(int a, int b)
 {
@@ -105,28 +107,47 @@ int subtract(int a, int b)
 	return a ^ b;
 }
 // 在Galois Field中的乘法
-int multiply(int a, int b)
+int multiply(int a, int b, int c)
 {
 	if(a==0||b==0)
 		return 0;
 	else
-		return exp_table[(log_table[a] + log_table[b]) % (GF-1)];
+	{
+		if(c==0)
+			return exp_table1[(log_table1[a] + log_table1[b]) % (GF[0]-1)];
+		else
+			return exp_table2[(log_table2[a] + log_table2[b]) % (GF[1]-1)];
+	}
 }
 // 在Galois Field中的除法
-int divide(int a, int b)
+int divide(int a, int b, int c)
 {
 	if (b == 0)
 		throw std::invalid_argument("Division by zero");
-	else if((log_table[a] - log_table[b])<0)
-		return exp_table[log_table[a] - log_table[b] + (GF-1)];
 	else
-		return exp_table[log_table[a] - log_table[b]];
+	{
+		if(c==0)
+		{
+			if((log_table1[a] - log_table1[b])<0)
+				return exp_table1[log_table1[a] - log_table1[b] + (GF[0]-1)];
+			else
+				return exp_table1[log_table1[a] - log_table1[b]];
+		}
+		else
+		{
+			if((log_table2[a] - log_table2[b])<0)
+				return exp_table2[log_table2[a] - log_table2[b] + (GF[1]-1)];
+			else
+				return exp_table2[log_table2[a] - log_table2[b]];
+        	}
+	}
 }
 //---------------------------------------------------------------------------
 Graphics::TBitmap * BMP, * Y, * P, * N, * M; // define global var.
 String fname;
 void __fastcall TForm1::Button1Click(TObject *Sender)
 {
+	PageControl1->ActivePage = TabSheet1;
 	int secret=StrToInt(Edit1->Text);
 	int n=StrToInt(Edit2->Text);
 	int k=StrToInt(Edit3->Text);
@@ -135,13 +156,16 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 		ShowMessage("n應大於等於k");
 		return;
 	}
+	if (RadioButton1->Checked)
+		c=0;
+	else
+		c=1;
 	resetSeed();
 	for(int i=0;i<k-1;)
 	{
-		p[i]=rand()%GF;
+		p[i]=rand()%GF[c];
 		if(p[i]!=0)
 		{
-			//Memo1 -> Lines -> Add(IntToStr(i)+","+IntToStr(p[i]));
 			i++;
 		}
 	}
@@ -159,9 +183,9 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 				m=1;
 				for(int l=0;l<j;l++)
 				{
-					m=multiply(m, i);
+					m=multiply(m, i, c);
 				}
-				data[i]=add(data[i],multiply(m, p[j-1]));
+				data[i]=add(data[i],multiply(m, p[j-1], c));
 			}
 		}
 		Memo1 -> Lines -> Add("("+IntToStr(i)+" , "+IntToStr(data[i])+")");
@@ -169,12 +193,14 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 	ListBox1->Clear();
 	for (int i=1; i<=n; i++)
 		ListBox1->Items->Add("Share "+IntToStr(i));
+
 }
 //---------------------------------------------------------------------------
 void __fastcall TForm1::Button2Click(TObject *Sender)
 {
     int n=StrToInt(Edit2->Text);
 	int k=StrToInt(Edit3->Text);
+	PageControl1->ActivePage = TabSheet1;
 	if(n<k)
 	{
 		ShowMessage("n應大於等於k");
@@ -200,7 +226,7 @@ void __fastcall TForm1::Button2Click(TObject *Sender)
 				{
 					if(j!=i)
 					{
-						temp=divide(multiply(temp,j+1),subtract(i+1, j+1));
+						temp=divide(multiply(temp,j+1,c),subtract(i+1, j+1),c);
 					}
 				}
 			}
@@ -230,6 +256,7 @@ void __fastcall TForm1::Button3Click(TObject *Sender)
 		if (++indexZ == SIZE)
 			Memo1 -> Lines -> Add("Image SIZE overflow!");
 	}
+	PageControl1->ActivePage = TabSheet4;
 }
 //---------------------------------------------------------------------------
 
@@ -247,6 +274,7 @@ void __fastcall TForm1::ListBox2Click(TObject *Sender)
 		}
 	}
 	Image2 -> Picture -> Assign(P);
+	PageControl1->ActivePage = TabSheet5;
 }
 //---------------------------------------------------------------------------
 
@@ -255,6 +283,7 @@ void __fastcall TForm1::Button4Click(TObject *Sender)
 	Y = new Graphics::TBitmap();
 	Y -> Width = BMP -> Width;
 	Y -> Height = BMP -> Height;
+    c=1;
 	if (datap != nullptr)
 	{
 		releaseDatap(datap, BMP->Height, BMP->Width, n1); // 釋放之前分配的空間
@@ -274,7 +303,7 @@ void __fastcall TForm1::Button4Click(TObject *Sender)
 			a[2]=GetBValue(BMP -> Canvas -> Pixels[j][i]); //B
 			for(int h=0;h<3;h++)
 			{
-                for(int l=0;l<k-1;)
+                		for(int l=0;l<k-1;)
 				{
 					p[l]=random(256);
 					if(p[l]!=0)
@@ -296,9 +325,9 @@ void __fastcall TForm1::Button4Click(TObject *Sender)
 							m=1;
 							for(int l=0;l<g;l++)
 							{
-								m=multiply(m, z);
+								m=multiply(m, z, c);
 							}
-							datap[j][i][z-1][h]=add(datap[j][i][z-1][h],multiply(m, p[g-1]));
+							datap[j][i][z-1][h]=add(datap[j][i][z-1][h],multiply(m, p[g-1], c));
 						}
 					}
 				}
@@ -316,12 +345,13 @@ void __fastcall TForm1::Button4Click(TObject *Sender)
 		}
 	}
 	Image2 -> Picture -> Assign(Y);
+	PageControl1->ActivePage = TabSheet5;
 }
 //---------------------------------------------------------------------------
 
 void __fastcall TForm1::Button6Click(TObject *Sender)
 {
-    for(int i=0;i<8;i++)
+	/*for(int i=0;i<8;i++)
 	{
 		String temp1="";
 		String temp2="";
@@ -334,13 +364,14 @@ void __fastcall TForm1::Button6Click(TObject *Sender)
 
 		}
 		Memo1 -> Lines -> Add(IntToStr(exp_table[i])+","+IntToStr(log_table[i])+"  "+temp1+temp2);
-	}
+	}*/
 }
 //---------------------------------------------------------------------------
 
 void __fastcall TForm1::Button5Click(TObject *Sender)
 {
 	int rr,gg,bb;
+	c=1;
 	M = new Graphics::TBitmap();
 	M -> Width = BMP -> Width;
 	M -> Height = BMP -> Height;
@@ -368,10 +399,9 @@ void __fastcall TForm1::Button5Click(TObject *Sender)
 						{
 							if(j!=i)
 							{
-								temp1=divide(multiply(temp1,j+1),subtract(i+1, j+1));
-								temp2=divide(multiply(temp2,j+1),subtract(i+1, j+1));
-								temp3=divide(multiply(temp3,j+1),subtract(i+1, j+1));
-								//Memo1 -> Lines -> Add(IntToStr(temp1)+","+IntToStr(temp2)+","+IntToStr(temp3));
+								temp1=divide(multiply(temp1,j+1,c),subtract(i+1, j+1),c);
+								temp2=divide(multiply(temp2,j+1,c),subtract(i+1, j+1),c);
+								temp3=divide(multiply(temp3,j+1,c),subtract(i+1, j+1),c);
 							}
 						}
 					}
@@ -383,6 +413,7 @@ void __fastcall TForm1::Button5Click(TObject *Sender)
 			}
 		}
 	}
-    Image3 -> Picture -> Assign(M);
+	Image3 -> Picture -> Assign(M);
+    PageControl1->ActivePage = TabSheet6;
 }
 //---------------------------------------------------------------------------
