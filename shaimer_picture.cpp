@@ -85,9 +85,9 @@ void releaseDatap(int ****&datap, int width, int height, int shares)
 		{
 			for (int k = 0; k < shares; k++)
 			{
-                delete[] datap[i][j][k];
-            }
-            delete[] datap[i][j];
+				delete[] datap[i][j][k];
+			}
+			delete[] datap[i][j];
         }
         delete[] datap[i];
     }
@@ -139,7 +139,7 @@ int divide(int a, int b, int c)
 				return exp_table2[log_table2[a] - log_table2[b] + (GF[1]-1)];
 			else
 				return exp_table2[log_table2[a] - log_table2[b]];
-        	}
+        }
 	}
 }
 //---------------------------------------------------------------------------
@@ -166,6 +166,7 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 		p[i]=rand()%GF[c];
 		if(p[i]!=0)
 		{
+			//Memo1 -> Lines -> Add(IntToStr(i)+","+IntToStr(p[i]));
 			i++;
 		}
 	}
@@ -281,18 +282,18 @@ void __fastcall TForm1::ListBox2Click(TObject *Sender)
 void __fastcall TForm1::Button4Click(TObject *Sender)
 {
 	Y = new Graphics::TBitmap();
-	Y -> Width = BMP -> Width;
-	Y -> Height = BMP -> Height;
-    c=1;
+    	c=1;
 	if (datap != nullptr)
 	{
-		releaseDatap(datap, BMP->Height, BMP->Width, n1); // 釋放之前分配的空間
-		ShowMessage("釋放");
+		releaseDatap(datap, Y->Height, Y->Width, n1); // 釋放之前分配的空間
+		//ShowMessage("釋放");
 	}
+    	Y -> Width = BMP -> Width;
+	Y -> Height = BMP -> Height;
 	int n=StrToInt(Edit5->Text);
 	int k=StrToInt(Edit6->Text);
 	n1=n;
-	allocateDatap(datap, BMP->Height, BMP->Width, n, 3); // 分配所需的空間
+	allocateDatap(datap, Y->Height, Y->Width, n, 3); // 分配所需的空間
 	for (int i=0 ; i<BMP->Height ; i++)
 	{
 		for (int j=0 ; j<BMP->Width ; j++)
@@ -303,7 +304,7 @@ void __fastcall TForm1::Button4Click(TObject *Sender)
 			a[2]=GetBValue(BMP -> Canvas -> Pixels[j][i]); //B
 			for(int h=0;h<3;h++)
 			{
-                		for(int l=0;l<k-1;)
+                for(int l=0;l<k-1;)
 				{
 					p[l]=random(256);
 					if(p[l]!=0)
@@ -397,11 +398,13 @@ void __fastcall TForm1::Button5Click(TObject *Sender)
 					{
 						if(ListBox2->Selected[j])
 						{
+							//ShowMessage(IntToStr(i)+" , "+IntToStr(j)+" , "+IntToStr(k)+" , "+IntToStr(z));
 							if(j!=i)
 							{
 								temp1=divide(multiply(temp1,j+1,c),subtract(i+1, j+1),c);
 								temp2=divide(multiply(temp2,j+1,c),subtract(i+1, j+1),c);
 								temp3=divide(multiply(temp3,j+1,c),subtract(i+1, j+1),c);
+								//Memo1 -> Lines -> Add(IntToStr(temp1)+","+IntToStr(temp2)+","+IntToStr(temp3));
 							}
 						}
 					}
