@@ -4,7 +4,9 @@
 #include <iostream>
 #include <vector>
 #include <cstdlib>
+#include <time.h>
 #include <ctime>
+#include <cmath>
 #pragma hdrstop
 #define SIZE 100
 Graphics::TBitmap * * Z;
@@ -16,6 +18,7 @@ int indexZ = 0;
 #pragma resource "*.dfm"
 TForm1 *Form1;
 int p[100];
+int mark[256]={0};
 int exp_table1[8];
 int log_table1[8];
 int exp_table2[256];
@@ -24,7 +27,7 @@ int data[1000]={0};
 int ****datap ;
 int n1=0;
 int c=1;
-int GF[2] = {8, 256};  // 使用大括號進行初始化
+int GF[2] = {8, 256};
 int PP[2] = {11, 285};
 //---------------------------------------------------------------------------
 __fastcall TForm1::TForm1(TComponent* Owner)
@@ -141,6 +144,323 @@ int divide(int a, int b, int c)
 				return exp_table2[log_table2[a] - log_table2[b]];
         }
 	}
+}
+void Lar(Graphics::TBitmap * M, Graphics::TBitmap * BMP, int c,int count)
+{
+	for (int k = 0; k < BMP->Height; k++) {
+		for (int z = 0; z < BMP->Width; z++) {
+			int rgb[3] = {0};
+
+			for (int ch = 0; ch < 3; ch++) {
+				int sum = 0;
+				for (int i = 0; i < count; i++) {
+					int xi = mark[i]+1;
+					int yi = datap[z][k][xi-1][ch];  // channel value at (z,k) for share xi
+
+					int li = 1;
+					for (int j = 0; j < count; j++) {
+						if (j == i) continue;
+						int xj = mark[j]+1;
+						int denom = subtract(xj, xi);
+						int inv = divide(xj, denom, c);  // xj / (xj - xi)
+						li = multiply(li, inv, c);       // li *= xj / (xj - xi)
+					}
+
+					sum = add(sum, multiply(yi, li, c));
+				}
+				rgb[ch] = sum;
+			}
+
+			M->Canvas->Pixels[z][k] = (TColor)RGB(rgb[0], rgb[1], rgb[2]);
+		}
+	}
+}
+
+int** Matrix(int n, int m) {
+	int** A = new int*[n];
+	if (!A)
+		return NULL;
+	for (int i = 0; i < n; ++i) {
+		A[i] = new int[m];
+		if (!A[i])
+			return NULL;
+	}
+	return A;
+}
+void DeleteMatrix(int** A, int n, int m) {
+	for (int i = 0; i < n; ++i)
+		delete[] A[i];
+	delete[] A;
+	A = NULL;
+}
+/*int Det(int** A, int n, int c) {
+	int** LU = Matrix(n, n);
+	int* P = new int[n];
+	for (int i = 0; i < n; i++) {
+		P[i] = i;
+		for (int j = 0; j < n; j++)
+			LU[i][j] = A[i][j];
+	}
+
+	int det_sign = 1;
+	for (int k = 0; k < n; ++k) {
+		// Find pivot
+		int pivot_row = k;
+		while (pivot_row < n && LU[pivot_row][k] == 0)
+			++pivot_row;
+		if (pivot_row == n)
+			return 0;
+
+		if (pivot_row != k) {
+			std::swap(P[k], P[pivot_row]);
+			std::swap(LU[k], LU[pivot_row]);
+			det_sign = -det_sign;
+		}
+
+		for (int i = k + 1; i < n; ++i) {
+			if (LU[i][k] == 0) continue;
+			int ratio = divide(LU[i][k], LU[k][k], c);
+			for (int j = k; j < n; ++j) {
+				int sub = multiply(ratio, LU[k][j], c);
+				LU[i][j] = subtract(LU[i][j], sub);
+			}
+		}
+	}
+
+	int det = (det_sign == 1) ? 1 : c - 1;
+	for (int i = 0; i < n; ++i)
+		det = multiply(det, LU[i][i], c);
+
+	delete[] P;
+	DeleteMatrix(LU, n, n);
+	return det;
+}
+void Deter(Graphics::TBitmap *M, Graphics::TBitmap *BMP, int c)
+{
+	int rgb[3] = {0};
+	int count = 0;
+	int mark[256] = {0};
+
+	// 擷取使用者選取的索引
+	for (int i = 0; i < Form1->ListBox2->Count; i++) {
+		if (Form1->ListBox2->Selected[i]) {
+			mark[count++] = i;
+		}
+	}
+
+	// 預先建立 Vandermonde 矩陣 A
+	int** A = Matrix(count, count);
+	for (int i = 0; i < count; i++) {
+		A[i][0] = 1;
+		for (int j = 1; j < count; j++) {
+			A[i][j] = multiply(A[i][j - 1], mark[i] + 1, c);
+		}
+	}
+
+	int AA = Det(A, count, c); // 預先算好母行列式
+
+	// 建立矩陣 B 並初始化成 A（之後每次僅更新第 0 欄）
+	int** B = Matrix(count, count);
+	for (int i = 0; i < count; i++)
+		for (int j = 0; j < count; j++)
+			B[i][j] = A[i][j];
+
+	// 圖片像素重建
+	for (int k = 0; k < BMP->Height; k++) {
+		for (int z = 0; z < BMP->Width; z++) {
+			for (int j = 0; j < 3; j++) {
+				// 更新 B 的第一欄為 datap（只改一欄）
+				for (int i = 0; i < count; i++)
+					B[i][0] = datap[z][k][mark[i]][j];
+
+				int BB = Det(B, count, c);
+				rgb[j] = divide(BB, AA, c);
+			}
+			M->Canvas->Pixels[z][k] = (TColor)RGB(rgb[0], rgb[1], rgb[2]);
+		}
+	}
+
+	DeleteMatrix(A, count, count);
+	DeleteMatrix(B, count, count);
+} */
+
+int Det(int** A, int n,int c) {
+	if (n == 1)
+		return A[0][0];
+	if (n == 2)
+		return subtract(multiply(A[0][0],A[1][1],c),multiply(A[0][1],A[1][0],c));
+
+	int det = 0;
+	int** M = Matrix(n - 1, n - 1);
+
+	// for all elements in the 0th row
+	for (int a = 0; a < n; ++a) {
+        // create minor matrix
+		for (int i = 1, minor_i = 0; i < n; ++i, ++minor_i) {
+            for (int j = 0, minor_j = 0; j < n; ++j) {
+				if (j == a)
+                    continue;
+				M[minor_i][minor_j++] = A[i][j];
+			}
+		}
+		det = add(det,multiply(A[0][a],Det(M, n - 1,c),c));
+	}
+    DeleteMatrix(M, n - 1, n - 1);
+	return det;
+}
+void Deter(Graphics::TBitmap * M,Graphics::TBitmap * BMP,int c,int count)
+{
+	int rgb[3]={0};
+	int** A = Matrix(count, count);
+	for(int i=0;i<count;i++)
+	{
+		for(int j=0;j<count;j++)
+		{
+			if(j==0)
+				A[i][j]=1;
+			else
+				A[i][j]=multiply(A[i][j-1],mark[i]+1,c);
+		}
+	}
+	int AA=Det(A, count,c);
+	int** B = Matrix(count, count);
+	for (int i = 0; i < count; i++)
+		for (int j = 0; j < count; j++)
+			B[i][j] = A[i][j];
+	for (int k=0 ; k<BMP->Height ; k++)
+	{
+		for (int z=0 ; z<BMP->Width ; z++)
+		{
+			for(int j=0;j<3;j++)
+			{
+				for(int i=0;i<count;i++)
+				{
+					B[i][0]=datap[z][k][mark[i]][j];
+				}
+				int BB=Det(B, count,c);
+				rgb[j]=divide(BB,AA,c);
+			}
+			M -> Canvas -> Pixels[z][k] = (TColor)RGB(rgb[0], rgb[1], rgb[2]);
+		}
+	}
+	DeleteMatrix(A, count, count);
+	DeleteMatrix(B, count, count);
+}
+/*void GE(int** A, int n, int m,int c) {
+	int ge_level;
+	if (n < m)
+		ge_level = n;
+	else
+		ge_level = m;
+
+	for (int p = 0; p < ge_level; p++) {
+		int pivot = A[p][p];
+		int count = p, tmp;
+		while (pivot == 0 && count < n)
+			pivot = A[++count][p];
+
+		if (count == n)
+			continue;
+
+		if (count != p) {
+			int* temp = A[p];
+			A[p] = A[count];
+			A[count] = temp;
+		}
+
+		for (int i = p + 1; i < n; ++i) {
+			int elim = A[i][p];
+			for (int j = p; j < m; ++j)
+				A[i][j] =subtract(A[i][j],divide(multiply(A[p][j],elim,c),pivot,c));
+		}
+	}
+}
+*/
+void GE(int** A, int n, int m, int c) {
+	int ge_level = (n < m) ? n : m;
+
+	for (int p = 0; p < ge_level; ++p) {
+		// 找 pivot（在 GF(c) 中不為 0）
+		int pivot_row = p;
+		while (pivot_row < n && A[pivot_row][p] == 0)
+			++pivot_row;
+
+		if (pivot_row == n)
+			continue; // 此列皆為 0，無法進一步消去
+
+		// 將 pivot 行換到目前這一行
+		if (pivot_row != p) {
+			int* temp = A[p];
+			A[p] = A[pivot_row];
+			A[pivot_row] = temp;
+		}
+
+		int pivot = A[p][p];
+		if (pivot == 0)
+			continue; // 無法作為消元基準
+
+		// 對 pivot 下方的所有列進行消去
+		for (int i = p + 1; i < n; ++i) {
+			int factor = A[i][p];
+			if (factor == 0) continue;
+
+			// 在 GF 中的比例係數 = factor / pivot
+			int scale = divide(factor, pivot, c);
+
+			for (int j = p; j < m; ++j) {
+				int scaled = multiply(A[p][j], scale, c);
+				A[i][j] = subtract(A[i][j], scaled);
+			}
+		}
+	}
+}
+void Gauss(Graphics::TBitmap * M,Graphics::TBitmap * BMP,int c,int count)
+{
+	int rgb[3]={0};
+	int** A = Matrix(count, count+1);
+	for (int k=0 ; k<BMP->Height ; k++)
+	{
+		for (int z=0 ; z<BMP->Width ; z++)
+		{
+			for(int u=0;u<3;u++)
+			{
+				for(int i=0;i<count;i++)
+				{
+					for(int j=count;j>=0;j--)
+					{
+                        A[i][j]=0;
+						if(j==count)
+							A[i][j]=datap[z][k][mark[i]][u];
+						else if(j==count-1)
+							A[i][j]=1;
+						else
+							A[i][j]=multiply(A[i][j+1],mark[i]+1,c);
+					}
+				}
+				GE(A, count, count+1,c);
+				/*int* x = new int[count];
+				for (int i = count - 1; i >= 0; i--) {
+					int sum = A[i][count];
+					for (int j = i + 1; j < count; j++)
+						sum = subtract(sum, multiply(A[i][j], x[j], c));
+					if (A[i][i] == 0)
+						x[i] = 0; // 或者標記錯誤
+					else
+						x[i] = divide(sum, A[i][i], c);
+				}
+				rgb[u] = x[count-1];
+				delete[] x;
+
+				if (A[count-1][count-1] == 0)
+					rgb[u] = 0;  // or fallback
+				else
+					rgb[u] = divide(A[count-1][count], A[count-1][count-1], c);*/
+				rgb[u]=divide(A[count-1][count],A[count-1][count-1],c);
+			}
+			M -> Canvas -> Pixels[z][k] = (TColor)RGB(rgb[0], rgb[1], rgb[2]);
+		}
+	}
+	DeleteMatrix(A, count, count+1);
 }
 //---------------------------------------------------------------------------
 Graphics::TBitmap * BMP, * Y, * P, * N, * M; // define global var.
@@ -282,13 +602,18 @@ void __fastcall TForm1::ListBox2Click(TObject *Sender)
 void __fastcall TForm1::Button4Click(TObject *Sender)
 {
 	Y = new Graphics::TBitmap();
-    	c=1;
+    c=1;
 	if (datap != nullptr)
 	{
 		releaseDatap(datap, Y->Height, Y->Width, n1); // 釋放之前分配的空間
 		//ShowMessage("釋放");
 	}
-    	Y -> Width = BMP -> Width;
+	if(BMP == nullptr)
+	{
+        ShowMessage("請先load圖片");
+		return;
+    }
+	Y -> Width = BMP -> Width;
 	Y -> Height = BMP -> Height;
 	int n=StrToInt(Edit5->Text);
 	int k=StrToInt(Edit6->Text);
@@ -304,7 +629,7 @@ void __fastcall TForm1::Button4Click(TObject *Sender)
 			a[2]=GetBValue(BMP -> Canvas -> Pixels[j][i]); //B
 			for(int h=0;h<3;h++)
 			{
-                for(int l=0;l<k-1;)
+				for(int l=0;l<k-1;)
 				{
 					p[l]=random(256);
 					if(p[l]!=0)
@@ -350,73 +675,107 @@ void __fastcall TForm1::Button4Click(TObject *Sender)
 }
 //---------------------------------------------------------------------------
 
-void __fastcall TForm1::Button6Click(TObject *Sender)
-{
-	/*for(int i=0;i<8;i++)
-	{
-		String temp1="";
-		String temp2="";
-		for(int j=0;j<8;j++)
-		{
-			if(add(i,j)==0)
-				temp1=temp1+","+IntToStr(j);
-			if(multiply(i,j)==1)
-				temp2=temp2+"-"+IntToStr(j);
-
-		}
-		Memo1 -> Lines -> Add(IntToStr(exp_table[i])+","+IntToStr(log_table[i])+"  "+temp1+temp2);
-	}*/
-}
-//---------------------------------------------------------------------------
-
 void __fastcall TForm1::Button5Click(TObject *Sender)
 {
-	int rr,gg,bb;
-	c=1;
-	M = new Graphics::TBitmap();
+	c=1;// 控制是2的幾次方,0是2^3,1是2^8
+	int correct=1;
+	int k=StrToInt(Edit6->Text);
+    M = new Graphics::TBitmap();
 	M -> Width = BMP -> Width;
 	M -> Height = BMP -> Height;
-	for (int i=0 ; i<BMP->Height ; i++)
-	{
-		for (int j=0 ; j<BMP->Width ; j++)
-		{
-			M -> Canvas -> Pixels[j][i] = (TColor)RGB(0, 0, 0);
-		}
-	}
+	clock_t t_begin,t_end;
+	int count=0;
 	for (int i=0; i<ListBox2->Count; i++)
 	{
 		if(ListBox2->Selected[i])
 		{
-			for (int k=0 ; k<BMP->Height ; k++)
-			{
-				for (int z=0 ; z<BMP->Width ; z++)
-				{
-					int temp1=datap[z][k][i][0];//R
-					int temp2=datap[z][k][i][1];//G
-					int temp3=datap[z][k][i][2];//B
-					for (int j=0; j<ListBox2->Count; j++)
-					{
-						if(ListBox2->Selected[j])
-						{
-							//ShowMessage(IntToStr(i)+" , "+IntToStr(j)+" , "+IntToStr(k)+" , "+IntToStr(z));
-							if(j!=i)
-							{
-								temp1=divide(multiply(temp1,j+1,c),subtract(i+1, j+1),c);
-								temp2=divide(multiply(temp2,j+1,c),subtract(i+1, j+1),c);
-								temp3=divide(multiply(temp3,j+1,c),subtract(i+1, j+1),c);
-								//Memo1 -> Lines -> Add(IntToStr(temp1)+","+IntToStr(temp2)+","+IntToStr(temp3));
-							}
-						}
-					}
-					rr=add(GetRValue(M -> Canvas -> Pixels[z][k]), temp1);
-					gg=add(GetGValue(M -> Canvas -> Pixels[z][k]), temp2);
-					bb=add(GetBValue(M -> Canvas -> Pixels[z][k]), temp3);
-					M -> Canvas -> Pixels[z][k] = (TColor)RGB(rr, gg, bb);
-				}
-			}
+			mark[count++]=i;
 		}
 	}
+	if(count<k)
+	{
+		ShowMessage("請選取大於等於k個Share");
+		return;
+    }
+	if(RadioButton3->Checked)
+	{
+		for (int i=0 ; i<BMP->Height ; i++)
+		{
+			for (int j=0 ; j<BMP->Width ; j++)
+			{
+				M -> Canvas -> Pixels[j][i] = (TColor)RGB(0, 0, 0);
+			}
+		}
+		t_begin=clock();
+		Lar(M,BMP,c,count);
+		t_end=clock();
+		Memo1->Lines->Add("拉格朗日CPU time (sec.) = "+FloatToStr((float)(t_end-t_begin)/CLOCKS_PER_SEC));
+        for (int i=0 ; i<BMP->Height ; i++)
+		{
+			for (int j=0 ; j<BMP->Width ; j++)
+			{
+				if(M -> Canvas -> Pixels[j][i]!=BMP -> Canvas -> Pixels[j][i])
+					correct=0;
+			}
+		}
+		if(correct)
+			Memo1->Lines->Add("解密成功");
+		else
+			Memo1->Lines->Add("解密失敗");
+	}
+	else if(RadioButton4->Checked)
+	{
+		for (int i=0 ; i<BMP->Height ; i++)
+		{
+			for (int j=0 ; j<BMP->Width ; j++)
+			{
+				M -> Canvas -> Pixels[j][i] = (TColor)RGB(0, 0, 0);
+			}
+		}
+		t_begin=clock();
+		Deter(M,BMP,c,count);
+        t_end=clock();
+		Memo1->Lines->Add("行列式CPU time (sec.) = "+FloatToStr((float)(t_end-t_begin)/CLOCKS_PER_SEC));
+		for (int i=0 ; i<BMP->Height ; i++)
+		{
+			for (int j=0 ; j<BMP->Width ; j++)
+			{
+				if(M -> Canvas -> Pixels[j][i]!=BMP -> Canvas -> Pixels[j][i])
+					correct=0;
+			}
+		}
+		if(correct)
+			Memo1->Lines->Add("解密成功");
+		else
+			Memo1->Lines->Add("解密失敗");
+	}
+	else if(RadioButton5->Checked)
+	{
+		for (int i=0 ; i<BMP->Height ; i++)
+		{
+			for (int j=0 ; j<BMP->Width ; j++)
+			{
+				M -> Canvas -> Pixels[j][i] = (TColor)RGB(0, 0, 0);
+			}
+		}
+		t_begin=clock();
+		Gauss(M,BMP,c,count);
+        t_end=clock();
+		Memo1->Lines->Add("高斯CPU time (sec.) = "+FloatToStr((float)(t_end-t_begin)/CLOCKS_PER_SEC));
+        for (int i=0 ; i<BMP->Height ; i++)
+		{
+			for (int j=0 ; j<BMP->Width ; j++)
+			{
+				if(M -> Canvas -> Pixels[j][i]!=BMP -> Canvas -> Pixels[j][i])
+					correct=0;
+			}
+		}
+		if(correct)
+			Memo1->Lines->Add("解密成功");
+		else
+			Memo1->Lines->Add("解密失敗");
+	}
 	Image3 -> Picture -> Assign(M);
-    PageControl1->ActivePage = TabSheet6;
+	PageControl1->ActivePage = TabSheet6;
 }
 //---------------------------------------------------------------------------
