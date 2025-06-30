@@ -17,18 +17,18 @@ int indexZ = 0;
 #pragma package(smart_init)
 #pragma resource "*.dfm"
 TForm1 *Form1;
-int p[100];
-int mark[256]={0};
-int exp_table1[8];
-int log_table1[8];
-int exp_table2[256];
-int log_table2[256];
-int data[1000]={0};
-int ****datap ;
-int n1=0;
-int c=1;
-int GF[2] = {8, 256};
-int PP[2] = {11, 285};
+unsigned char p[100];
+unsigned char mark[256]={0};
+unsigned short exp_table1[8];
+unsigned short log_table1[8];
+unsigned short exp_table2[256];
+unsigned short log_table2[256];
+unsigned char data[1000]={0};
+unsigned char ****datap ;
+unsigned char n1=0;
+bool c=1;
+unsigned short GF[2] = {8, 256};
+unsigned short PP[2] = {11, 285};
 //---------------------------------------------------------------------------
 __fastcall TForm1::TForm1(TComponent* Owner)
 	: TForm(Owner)
@@ -64,23 +64,23 @@ void resetSeed()
 {
     srand(static_cast<unsigned int>(time(nullptr)));
 }
-void allocateDatap(int ****&datap, int width, int height, int shares, int channels)
+void allocateDatap(unsigned char ****&datap, int width, int height, int shares, int channels)
 {
-    datap = new int***[height];
+	datap = new unsigned char***[height];
 	for (int i = 0; i < height; i++)
 	{
-        datap[i] = new int**[width];
+		datap[i] = new unsigned char**[width];
 		for (int j = 0; j < width; j++)
 		{
-            datap[i][j] = new int*[shares];
+			datap[i][j] = new unsigned char*[shares];
 			for (int k = 0; k < shares; k++)
 			{
-                datap[i][j][k] = new int[channels];
+				datap[i][j][k] = new unsigned char[channels];
             }
         }
     }
 }
-void releaseDatap(int ****&datap, int width, int height, int shares)
+void releaseDatap(unsigned char ****&datap, int width, int height, int shares)
 {
 	for (int i = 0; i < height; i++)
 	{
@@ -100,17 +100,17 @@ void releaseDatap(int ****&datap, int width, int height, int shares)
 # define K  (TColor)RGB(0 , 0 , 0)
 # define W  (TColor)RGB(255 , 255 , 255)
 // 在Galois Field中的加法
-int add(int a, int b)
+unsigned char add(unsigned char a, unsigned char b)
 {
 	return a ^ b;
 }
 // 在Galois Field中的減法
-int subtract(int a, int b)
+unsigned char subtract(unsigned char a, unsigned char b)
 {
 	return a ^ b;
 }
 // 在Galois Field中的乘法
-int multiply(int a, int b, int c)
+unsigned char multiply(unsigned char a, unsigned char b, bool c)
 {
 	if(a==0||b==0)
 		return 0;
@@ -123,7 +123,7 @@ int multiply(int a, int b, int c)
 	}
 }
 // 在Galois Field中的除法
-int divide(int a, int b, int c)
+int divide(unsigned char a, unsigned char b, bool c)
 {
 	if (b == 0)
 		throw std::invalid_argument("Division by zero");
@@ -145,24 +145,24 @@ int divide(int a, int b, int c)
         }
 	}
 }
-void Lar(Graphics::TBitmap * M, Graphics::TBitmap * BMP, int c,int count)
+void Lar(Graphics::TBitmap * M, Graphics::TBitmap * BMP, bool c,unsigned char count)
 {
 	for (int k = 0; k < BMP->Height; k++) {
 		for (int z = 0; z < BMP->Width; z++) {
 			int rgb[3] = {0};
 
 			for (int ch = 0; ch < 3; ch++) {
-				int sum = 0;
+				unsigned char sum = 0;
 				for (int i = 0; i < count; i++) {
-					int xi = mark[i]+1;
-					int yi = datap[z][k][xi-1][ch];  // channel value at (z,k) for share xi
+					unsigned char xi = mark[i]+1;
+					unsigned char yi = datap[z][k][xi-1][ch];  // channel value at (z,k) for share xi
 
 					int li = 1;
 					for (int j = 0; j < count; j++) {
 						if (j == i) continue;
-						int xj = mark[j]+1;
-						int denom = subtract(xj, xi);
-						int inv = divide(xj, denom, c);  // xj / (xj - xi)
+						unsigned char xj = mark[j]+1;
+						unsigned char denom = subtract(xj, xi);
+						unsigned char inv = divide(xj, denom, c);  // xj / (xj - xi)
 						li = multiply(li, inv, c);       // li *= xj / (xj - xi)
 					}
 
@@ -176,122 +176,32 @@ void Lar(Graphics::TBitmap * M, Graphics::TBitmap * BMP, int c,int count)
 	}
 }
 
-int** Matrix(int n, int m) {
-	int** A = new int*[n];
+unsigned char** Matrix(unsigned char n, unsigned char m) {
+	unsigned char** A = new unsigned char*[n];
 	if (!A)
 		return NULL;
 	for (int i = 0; i < n; ++i) {
-		A[i] = new int[m];
+		A[i] = new unsigned char[m];
 		if (!A[i])
 			return NULL;
 	}
 	return A;
 }
-void DeleteMatrix(int** A, int n, int m) {
+void DeleteMatrix(unsigned char** A, unsigned char n, unsigned char m) {
 	for (int i = 0; i < n; ++i)
 		delete[] A[i];
 	delete[] A;
 	A = NULL;
 }
-/*int Det(int** A, int n, int c) {
-	int** LU = Matrix(n, n);
-	int* P = new int[n];
-	for (int i = 0; i < n; i++) {
-		P[i] = i;
-		for (int j = 0; j < n; j++)
-			LU[i][j] = A[i][j];
-	}
 
-	int det_sign = 1;
-	for (int k = 0; k < n; ++k) {
-		// Find pivot
-		int pivot_row = k;
-		while (pivot_row < n && LU[pivot_row][k] == 0)
-			++pivot_row;
-		if (pivot_row == n)
-			return 0;
-
-		if (pivot_row != k) {
-			std::swap(P[k], P[pivot_row]);
-			std::swap(LU[k], LU[pivot_row]);
-			det_sign = -det_sign;
-		}
-
-		for (int i = k + 1; i < n; ++i) {
-			if (LU[i][k] == 0) continue;
-			int ratio = divide(LU[i][k], LU[k][k], c);
-			for (int j = k; j < n; ++j) {
-				int sub = multiply(ratio, LU[k][j], c);
-				LU[i][j] = subtract(LU[i][j], sub);
-			}
-		}
-	}
-
-	int det = (det_sign == 1) ? 1 : c - 1;
-	for (int i = 0; i < n; ++i)
-		det = multiply(det, LU[i][i], c);
-
-	delete[] P;
-	DeleteMatrix(LU, n, n);
-	return det;
-}
-void Deter(Graphics::TBitmap *M, Graphics::TBitmap *BMP, int c)
-{
-	int rgb[3] = {0};
-	int count = 0;
-	int mark[256] = {0};
-
-	// 擷取使用者選取的索引
-	for (int i = 0; i < Form1->ListBox2->Count; i++) {
-		if (Form1->ListBox2->Selected[i]) {
-			mark[count++] = i;
-		}
-	}
-
-	// 預先建立 Vandermonde 矩陣 A
-	int** A = Matrix(count, count);
-	for (int i = 0; i < count; i++) {
-		A[i][0] = 1;
-		for (int j = 1; j < count; j++) {
-			A[i][j] = multiply(A[i][j - 1], mark[i] + 1, c);
-		}
-	}
-
-	int AA = Det(A, count, c); // 預先算好母行列式
-
-	// 建立矩陣 B 並初始化成 A（之後每次僅更新第 0 欄）
-	int** B = Matrix(count, count);
-	for (int i = 0; i < count; i++)
-		for (int j = 0; j < count; j++)
-			B[i][j] = A[i][j];
-
-	// 圖片像素重建
-	for (int k = 0; k < BMP->Height; k++) {
-		for (int z = 0; z < BMP->Width; z++) {
-			for (int j = 0; j < 3; j++) {
-				// 更新 B 的第一欄為 datap（只改一欄）
-				for (int i = 0; i < count; i++)
-					B[i][0] = datap[z][k][mark[i]][j];
-
-				int BB = Det(B, count, c);
-				rgb[j] = divide(BB, AA, c);
-			}
-			M->Canvas->Pixels[z][k] = (TColor)RGB(rgb[0], rgb[1], rgb[2]);
-		}
-	}
-
-	DeleteMatrix(A, count, count);
-	DeleteMatrix(B, count, count);
-} */
-
-int Det(int** A, int n,int c) {
+int Det(unsigned char** A, unsigned char n,bool c) {
 	if (n == 1)
 		return A[0][0];
 	if (n == 2)
 		return subtract(multiply(A[0][0],A[1][1],c),multiply(A[0][1],A[1][0],c));
 
 	int det = 0;
-	int** M = Matrix(n - 1, n - 1);
+	unsigned char** M = Matrix(n - 1, n - 1);
 
 	// for all elements in the 0th row
 	for (int a = 0; a < n; ++a) {
@@ -308,10 +218,10 @@ int Det(int** A, int n,int c) {
     DeleteMatrix(M, n - 1, n - 1);
 	return det;
 }
-void Deter(Graphics::TBitmap * M,Graphics::TBitmap * BMP,int c,int count)
+void Deter(Graphics::TBitmap * M,Graphics::TBitmap * BMP,bool c,unsigned char count)
 {
-	int rgb[3]={0};
-	int** A = Matrix(count, count);
+	unsigned char rgb[3]={0};
+	unsigned char** A = Matrix(count, count);
 	for(int i=0;i<count;i++)
 	{
 		for(int j=0;j<count;j++)
@@ -322,8 +232,8 @@ void Deter(Graphics::TBitmap * M,Graphics::TBitmap * BMP,int c,int count)
 				A[i][j]=multiply(A[i][j-1],mark[i]+1,c);
 		}
 	}
-	int AA=Det(A, count,c);
-	int** B = Matrix(count, count);
+	unsigned char AA=Det(A, count,c);
+	unsigned char** B = Matrix(count, count);
 	for (int i = 0; i < count; i++)
 		for (int j = 0; j < count; j++)
 			B[i][j] = A[i][j];
@@ -337,7 +247,7 @@ void Deter(Graphics::TBitmap * M,Graphics::TBitmap * BMP,int c,int count)
 				{
 					B[i][0]=datap[z][k][mark[i]][j];
 				}
-				int BB=Det(B, count,c);
+				unsigned char BB=Det(B, count,c);
 				rgb[j]=divide(BB,AA,c);
 			}
 			M -> Canvas -> Pixels[z][k] = (TColor)RGB(rgb[0], rgb[1], rgb[2]);
@@ -346,42 +256,13 @@ void Deter(Graphics::TBitmap * M,Graphics::TBitmap * BMP,int c,int count)
 	DeleteMatrix(A, count, count);
 	DeleteMatrix(B, count, count);
 }
-/*void GE(int** A, int n, int m,int c) {
-	int ge_level;
-	if (n < m)
-		ge_level = n;
-	else
-		ge_level = m;
 
-	for (int p = 0; p < ge_level; p++) {
-		int pivot = A[p][p];
-		int count = p, tmp;
-		while (pivot == 0 && count < n)
-			pivot = A[++count][p];
-
-		if (count == n)
-			continue;
-
-		if (count != p) {
-			int* temp = A[p];
-			A[p] = A[count];
-			A[count] = temp;
-		}
-
-		for (int i = p + 1; i < n; ++i) {
-			int elim = A[i][p];
-			for (int j = p; j < m; ++j)
-				A[i][j] =subtract(A[i][j],divide(multiply(A[p][j],elim,c),pivot,c));
-		}
-	}
-}
-*/
-void GE(int** A, int n, int m, int c) {
+void GE(unsigned char** A, unsigned char n, unsigned char m, bool c) {
 	int ge_level = (n < m) ? n : m;
 
 	for (int p = 0; p < ge_level; ++p) {
 		// 找 pivot（在 GF(c) 中不為 0）
-		int pivot_row = p;
+		unsigned char pivot_row = p;
 		while (pivot_row < n && A[pivot_row][p] == 0)
 			++pivot_row;
 
@@ -390,7 +271,7 @@ void GE(int** A, int n, int m, int c) {
 
 		// 將 pivot 行換到目前這一行
 		if (pivot_row != p) {
-			int* temp = A[p];
+			unsigned char* temp = A[p];
 			A[p] = A[pivot_row];
 			A[pivot_row] = temp;
 		}
@@ -401,23 +282,23 @@ void GE(int** A, int n, int m, int c) {
 
 		// 對 pivot 下方的所有列進行消去
 		for (int i = p + 1; i < n; ++i) {
-			int factor = A[i][p];
+			unsigned char factor = A[i][p];
 			if (factor == 0) continue;
 
 			// 在 GF 中的比例係數 = factor / pivot
 			int scale = divide(factor, pivot, c);
 
 			for (int j = p; j < m; ++j) {
-				int scaled = multiply(A[p][j], scale, c);
+				unsigned char scaled = multiply(A[p][j], scale, c);
 				A[i][j] = subtract(A[i][j], scaled);
 			}
 		}
 	}
 }
-void Gauss(Graphics::TBitmap * M,Graphics::TBitmap * BMP,int c,int count)
+void Gauss(Graphics::TBitmap * M,Graphics::TBitmap * BMP,bool c,unsigned char count)
 {
-	int rgb[3]={0};
-	int** A = Matrix(count, count+1);
+	unsigned char rgb[3]={0};
+	unsigned char** A = Matrix(count, count+1);
 	for (int k=0 ; k<BMP->Height ; k++)
 	{
 		for (int z=0 ; z<BMP->Width ; z++)
@@ -468,12 +349,12 @@ String fname;
 void __fastcall TForm1::Button1Click(TObject *Sender)
 {
 	PageControl1->ActivePage = TabSheet1;
-	int secret=StrToInt(Edit1->Text);
-	int n=StrToInt(Edit2->Text);
-	int k=StrToInt(Edit3->Text);
-	if(n<k)
+	unsigned char secret=StrToInt(Edit1->Text);
+	unsigned char n=StrToInt(Edit2->Text);
+	unsigned char k=StrToInt(Edit3->Text);
+	if(n<k||n>255)
 	{
-		ShowMessage("n應大於等於k");
+		ShowMessage("n應大於等於k且小於256");
 		return;
 	}
 	if (RadioButton1->Checked)
@@ -490,10 +371,10 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 			i++;
 		}
 	}
-	for(int i=1;i<=n;i++)
+	for(unsigned char i=1;i<=n;i++)
 	{
-		int m;
-		for(int j=0;j<k;j++)
+		unsigned char m;
+		for(unsigned char j=0;j<k;j++)
 		{
 			if(j==0)
 			{
@@ -502,7 +383,7 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 			else
 			{
 				m=1;
-				for(int l=0;l<j;l++)
+				for(unsigned char l=0;l<j;l++)
 				{
 					m=multiply(m, i, c);
 				}
@@ -512,15 +393,16 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 		Memo1 -> Lines -> Add("("+IntToStr(i)+" , "+IntToStr(data[i])+")");
 	}
 	ListBox1->Clear();
-	for (int i=1; i<=n; i++)
-		ListBox1->Items->Add("Share "+IntToStr(i));
+	for (unsigned char i=1; i<=n; i++)
+		ListBox1->Items->Add("Share "+IntToStr(i)+" : ("+IntToStr(i)+", "+IntToStr(data[i])+")");
 
 }
 //---------------------------------------------------------------------------
 void __fastcall TForm1::Button2Click(TObject *Sender)
 {
-    int n=StrToInt(Edit2->Text);
-	int k=StrToInt(Edit3->Text);
+	unsigned char secret=StrToInt(Edit1->Text);
+	unsigned char n=StrToInt(Edit2->Text);
+	unsigned char k=StrToInt(Edit3->Text);
 	PageControl1->ActivePage = TabSheet1;
 	if(n<k)
 	{
@@ -535,12 +417,12 @@ void __fastcall TForm1::Button2Click(TObject *Sender)
 			Memo1 -> Lines -> Add("("+IntToStr(i+1)+" , "+IntToStr(data[i+1])+")");
 		}
 	}
-	int s=0;
+	unsigned char s=0;
 	for (int i=0; i<ListBox1->Count; i++)
 	{
 		if(ListBox1->Selected[i])
 		{
-			int temp=data[i+1];
+			unsigned char temp=data[i+1];
 			for (int j=0; j<ListBox1->Count; j++)
 			{
 				if(ListBox1->Selected[j])
@@ -555,6 +437,10 @@ void __fastcall TForm1::Button2Click(TObject *Sender)
 		}
 	}
 	Memo1 -> Lines -> Add("密碼是 : "+IntToStr(s));
+	if(s!= secret)
+		Memo1 -> Lines -> Add("解密失敗");
+	else
+        Memo1 -> Lines -> Add("解密成功");
 }
 //---------------------------------------------------------------------------
 
@@ -615,15 +501,15 @@ void __fastcall TForm1::Button4Click(TObject *Sender)
     }
 	Y -> Width = BMP -> Width;
 	Y -> Height = BMP -> Height;
-	int n=StrToInt(Edit5->Text);
-	int k=StrToInt(Edit6->Text);
+	unsigned char n=StrToInt(Edit5->Text);
+	unsigned char k=StrToInt(Edit6->Text);
 	n1=n;
 	allocateDatap(datap, Y->Height, Y->Width, n, 3); // 分配所需的空間
 	for (int i=0 ; i<BMP->Height ; i++)
 	{
 		for (int j=0 ; j<BMP->Width ; j++)
 		{
-			int a[3];
+			unsigned char a[3];
 			a[0]=GetRValue(BMP -> Canvas -> Pixels[j][i]); //R
 			a[1]=GetGValue(BMP -> Canvas -> Pixels[j][i]); //G
 			a[2]=GetBValue(BMP -> Canvas -> Pixels[j][i]); //B
@@ -639,7 +525,7 @@ void __fastcall TForm1::Button4Click(TObject *Sender)
 				}
 				for(int z=1;z<=n;z++)
 				{
-					int m;
+					unsigned char m;
 					for(int g=0;g<k;g++)
 					{
 						if(g==0)
@@ -678,13 +564,13 @@ void __fastcall TForm1::Button4Click(TObject *Sender)
 void __fastcall TForm1::Button5Click(TObject *Sender)
 {
 	c=1;// 控制是2的幾次方,0是2^3,1是2^8
-	int correct=1;
-	int k=StrToInt(Edit6->Text);
+	bool correct=1;
+	unsigned char k=StrToInt(Edit6->Text);
     M = new Graphics::TBitmap();
 	M -> Width = BMP -> Width;
 	M -> Height = BMP -> Height;
 	clock_t t_begin,t_end;
-	int count=0;
+	unsigned char count=0;
 	for (int i=0; i<ListBox2->Count; i++)
 	{
 		if(ListBox2->Selected[i])
@@ -692,11 +578,6 @@ void __fastcall TForm1::Button5Click(TObject *Sender)
 			mark[count++]=i;
 		}
 	}
-	if(count<k)
-	{
-		ShowMessage("請選取大於等於k個Share");
-		return;
-    }
 	if(RadioButton3->Checked)
 	{
 		for (int i=0 ; i<BMP->Height ; i++)
