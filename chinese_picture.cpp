@@ -30,6 +30,7 @@ unsigned char allPrimes[54] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29,
 						127, 131, 137, 139, 149, 151, 157, 163, 167, 173,
 						179, 181, 191, 193, 197, 199, 211, 223, 227, 229,
 						233, 239, 241, 251};
+unsigned int alltPrimes[10] = {257, 263, 269, 271, 277, 281, 283, 293, 307, 311};
 unsigned long long alphaval=1,betaval=1;
 unsigned char mark[256]={0},pmark[256]={0};
 unsigned long long table[256]={0};
@@ -218,7 +219,7 @@ void Miggnotte(Graphics::TBitmap * M, Graphics::TBitmap * BMP,unsigned char coun
 	}
 	unsigned long long p=CRT_PN(Q,count);
 	Form1->Memo1->Lines->Add("p:"+IntToStr((int)p));
-    std::mt19937 prand(p);  // 固定亂數種子
+	std::mt19937 prand(p);  // 固定亂數種子
 	std::uniform_int_distribution<> distXOR(0, 255);  // 區間 [0, 255]
 	for (int i=0 ; i<BMP->Height ; i++)
 	{
@@ -232,8 +233,8 @@ void Miggnotte(Graphics::TBitmap * M, Graphics::TBitmap * BMP,unsigned char coun
 				for(int z=0;z<count;z++)
 				{
 					sum+=(unsigned long long)datap[j][i][mark[z]][h]*table[z];
-                    sum=sum%Q;
 				}
+                sum=sum%Q;
 				rgb[h] = (sum-p)^temp;
 			}
 			M->Canvas->Pixels[j][i] = (TColor)RGB(rgb[0], rgb[1], rgb[2]);
@@ -255,6 +256,35 @@ void Miggnotte(Graphics::TBitmap * M, Graphics::TBitmap * BMP,unsigned char coun
 			M->Canvas->Pixels[j][i] = (TColor)RGB(a[0], a[1], a[2]);
 		}
 	} */
+}
+
+void AB(Graphics::TBitmap * M, Graphics::TBitmap * BMP,unsigned char count)
+{
+	unsigned long long Q=1;
+	for (int i=0 ; i<count ; i++)
+	{
+		Q *= (unsigned long long)primenumbers[mark[i]];
+	}
+	unsigned long long p=CRT_PN(Q,count);
+	Form1->Memo1->Lines->Add("p:"+IntToStr((int)p));
+	for (int i=0 ; i<BMP->Height ; i++)
+	{
+		for (int j=0 ; j<BMP->Width ; j++)
+		{
+			unsigned char rgb[3];
+			for(int h=0;h<3;h++)
+			{
+				unsigned long long sum=0;
+				for(int z=0;z<count;z++)
+				{
+					sum+=(unsigned long long)datap[j][i][mark[z]][h]*table[z];
+				}
+				sum=sum%Q;
+				rgb[h] = sum%p;
+			}
+			M->Canvas->Pixels[j][i] = (TColor)RGB(rgb[0], rgb[1], rgb[2]);
+		}
+	}
 }
 //---------------------------------------------------------------------------
 void __fastcall TForm1::Button1Click(TObject *Sender)
@@ -327,13 +357,14 @@ void __fastcall TForm1::Button3Click(TObject *Sender)
 	n1=n;
 	allocateDatap(datap, BMP->Height, BMP->Width, n, 3); // 分配所需的空間
 	unsigned long long p;
-	alphaval=1,betaval=1;
 	bool validRange = false;
+    ListBox2->Clear();
 	if(RadioButton3->Checked)
 	{
 		t_begin=clock();
 		while(!validRange)
 		{
+			alphaval=1,betaval=1;
 			for (int i = 0; i < 100; i++)
 				primenumbers[i] = 0;
 			std::vector<int> primeIndices(54);
@@ -360,7 +391,7 @@ void __fastcall TForm1::Button3Click(TObject *Sender)
 				validRange = true;
 			}
 		}
-        std::random_device rd;  // 隨機種子來源（硬體隨機）
+		std::random_device rd;  // 隨機種子來源（硬體隨機）
 		std::mt19937 gen(rd()); // 隨機數產生器（梅森旋轉法）
 		std::uniform_int_distribution<unsigned long long> distP(alphaval+1, betaval-257); // 定義在 alpha 到 beta 間的整數分布
 		p = distP(gen); // 產生一個隨機整數
@@ -390,12 +421,21 @@ void __fastcall TForm1::Button3Click(TObject *Sender)
 		}
 		t_end=clock();
 		Memo1->Lines->Add("Miggnotte加密 CPU time (sec.) = "+FloatToStr((float)(t_end-t_begin)/CLOCKS_PER_SEC));
+		for (int i=1; i<=n; i++)
+		{
+			pmark[i-1]=p%primenumbers[i-1];
+			ListBox2->Items->Add("Share "+IntToStr(i)+", q"+IntToStr(i)+" : "+IntToStr((int)primenumbers[i-1])+", b"+IntToStr(i)+" : "+IntToStr((int)(pmark[i-1])));
+		}
 	}
 	else if(RadioButton4->Checked)
 	{
+		n=4;
+		k=3;
 		t_begin=clock();
-		while(!validRange)
+		int loop=0;
+		/*while(!validRange && loop<100)
 		{
+            alphaval=1,betaval=1;
 			for (int i = 0; i < 100; i++)
 				primenumbers[i] = 0;
 			std::vector<int> primeIndices(54);
@@ -404,7 +444,7 @@ void __fastcall TForm1::Button3Click(TObject *Sender)
 			unsigned int seed = static_cast<unsigned int>(std::chrono::system_clock::now().time_since_epoch().count());
 			std::mt19937 g(seed);
 			std::shuffle(primeIndices.begin(), primeIndices.end(), g);
-			for(int i=0;i<n+1;i++)
+			for(int i=0;i<n;i++)
 			{
 				primenumbers[i]=allPrimes[primeIndices[i]];
 			}
@@ -416,48 +456,72 @@ void __fastcall TForm1::Button3Click(TObject *Sender)
 				if(i>n-k)
 					alphaval=alphaval*(unsigned long long)primenumbers[i];
 			}
-			unsigned long long lower = alphaval + 1;
-			unsigned long long upper = betaval - 257;
-			if (lower <= upper) {
+			// 用 mt19937 產生 t（0~9）
+			//std::uniform_int_distribution<unsigned int> distP(0, 9);  // 產生範圍 0~9 的整數
+			//unsigned int p = distP(g);
+			//primenumbers[n] = alltPrimes[p];
+			if (betaval/alphaval>256){
 				validRange = true;
 			}
+            Memo1->Lines->Add("betaval/alphaval:"+UIntToStr(betaval/alphaval)+"正確alphaval:"+UIntToStr(alphaval)+"正確betaval:"+UIntToStr(betaval));
+            loop++;
+		}*/
+		//Memo1->Lines->Add("p: "+UIntToStr(primenumbers[n]));
+		primenumbers[0]=202;
+		primenumbers[1]=209;
+		primenumbers[2]=217;
+		primenumbers[3]=255;
+		primenumbers[4]=257;
+        for(int i=0;i<n;i++)
+		{
+			if(i<k)
+				betaval=betaval*(unsigned long long)primenumbers[i];
+			if(i>n-k)
+				alphaval=alphaval*(unsigned long long)primenumbers[i];
 		}
-        std::random_device rd;  // 隨機種子來源（硬體隨機）
+		std::random_device rd;  // 隨機種子來源（硬體隨機）
 		std::mt19937 gen(rd()); // 隨機數產生器（梅森旋轉法）
-		std::uniform_int_distribution<unsigned long long> distP(alphaval+1, betaval-257); // 定義在 alpha 到 beta 間的整數分布
-		p = distP(gen); // 產生一個隨機整數
+		//std::uniform_int_distribution<unsigned int> distP(256, betaval/alphaval); // 定義在 alpha 到 beta 間的整數分布
+		//primenumbers[n] = distP(gen); // 產生一個隨機整數
+		Memo1->Lines->Add("正確p:"+UIntToStr(primenumbers[n])+"正確alphaval:"+UIntToStr(alphaval)+"正確betaval:"+UIntToStr(betaval));
+		unsigned long long lower = alphaval/(unsigned long long)primenumbers[n] + 1;
+		unsigned long long upper = (betaval-256)/(unsigned long long)primenumbers[n] - 1;
+		//Memo1->Lines->Add("正確lower:"+UIntToStr(lower)+"正確upper:"+UIntToStr(upper));
+		std::uniform_int_distribution<unsigned long long> distA(lower, upper); // 定義在 alpha 到 beta 間的整數分布
 		t_end=clock();
-		Memo1->Lines->Add("正確p:"+UIntToStr(p)+"正確alphaval:"+UIntToStr(alphaval)+"正確betaval:"+UIntToStr(betaval));
 		Memo1->Lines->Add("選取適當質數CPU time (sec.) = "+FloatToStr((float)(t_end-t_begin)/CLOCKS_PER_SEC));
 		t_begin=clock();
-		std::mt19937 prand(p);  // 固定亂數種子
-		std::uniform_int_distribution<> distXOR(0, 255);  // 區間 [0, 255]
 		for (int i=0 ; i<BMP->Height ; i++)
 		{
 			for (int j=0 ; j<BMP->Width ; j++)
 			{
 				unsigned char a[3];
-				unsigned int temp = distXOR(prand); // 產生一個隨機整數
 				a[0]=GetRValue(BMP -> Canvas -> Pixels[j][i]); //R
 				a[1]=GetGValue(BMP -> Canvas -> Pixels[j][i]); //G
 				a[2]=GetBValue(BMP -> Canvas -> Pixels[j][i]); //B
 				for(int h=0;h<3;h++)
 				{
+					unsigned long long A = distA(gen); // 產生一個隨機整數
 					for(int z=0;z<n;z++)
 					{
-						datap[j][i][z][h]=((a[h]^temp)+p)%primenumbers[z];
+						datap[j][i][z][h]=(a[h]+(A*primenumbers[n]));
+						datap[j][i][z][h]=datap[j][i][z][h]%primenumbers[z];
+						if(i==0&&j==0)
+						{
+							//Memo1->Lines->Add("A:"+UIntToStr(A)+"正確datap[j][i][z][h]:"+IntToStr((int)a[h])+"後datap[j][i][z][h]:"+UIntToStr(datap[j][i][z][h]));
+						}
 					}
 				}
 			}
 		}
 		t_end=clock();
-		Memo1->Lines->Add("Miggnotte加密 CPU time (sec.) = "+FloatToStr((float)(t_end-t_begin)/CLOCKS_PER_SEC));
-	}
-	ListBox2->Clear();
-	for (int i=1; i<=n; i++)
-	{
-		pmark[i-1]=p%primenumbers[i-1];
-		ListBox2->Items->Add("Share "+IntToStr(i)+", q"+IntToStr(i)+" : "+IntToStr((int)primenumbers[i-1])+", b"+IntToStr(i)+" : "+IntToStr((int)(pmark[i-1])));
+		Memo1->Lines->Add("A-B加密 CPU time (sec.) = "+FloatToStr((float)(t_end-t_begin)/CLOCKS_PER_SEC));
+		ListBox2->Clear();
+		for (int i=1; i<=n; i++)
+		{
+			pmark[i-1]=primenumbers[n]%primenumbers[i-1];
+			ListBox2->Items->Add("Share "+IntToStr(i)+", q"+IntToStr(i)+" : "+IntToStr((int)primenumbers[i-1])+", a"+IntToStr(i)+" : "+IntToStr((int)(pmark[i-1])));
+		}
 	}
 	for (int i=0 ; i<BMP->Height ; i++)
 	{
@@ -468,19 +532,6 @@ void __fastcall TForm1::Button3Click(TObject *Sender)
 	}
 	Image2 -> Picture -> Assign(Y);
 	PageControl2->ActivePage = TabSheet5;
-	/*if (d <= 0 || d > 32) {
-        ShowMessage("請輸入 1 ~ 32 之間的 bit 數");
-		return;
-	}
-    auto bytes = GetBitmapBytes(bmp);
-	auto bits = BytesToBits(bytes);
-	auto chunks = ExtractBitChunks_Padded(bits, d);
-    std::vector<unsigned int> encrypted_chunks;
-
-for (unsigned int chunk : chunks) {
-	unsigned int cipher = Encrypt(chunk);  // 你要自己定義的加密函式
-    encrypted_chunks.push_back(cipher);   // 加入加密後結果
-}                                        */
 }
 //---------------------------------------------------------------------------
 
@@ -522,7 +573,6 @@ void __fastcall TForm1::Button4Click(TObject *Sender)
 		Memo1->Lines->Add("mark[" + IntToStr(i) + "] = " + IntToStr((int)mark[i]));
     	Memo1->Lines->Add("用來解密的質數: " + IntToStr((int)primenumbers[mark[i]]));
 	}*/
-
 	if(RadioButton3->Checked)
 	{
 		for (int i=0 ; i<BMP->Height ; i++)
@@ -536,7 +586,7 @@ void __fastcall TForm1::Button4Click(TObject *Sender)
 		Miggnotte(M,BMP,count);
 		t_end=clock();
 		Memo1->Lines->Add("Miggnotte解密 CPMU time (sec.) = "+FloatToStr((float)(t_end-t_begin)/CLOCKS_PER_SEC));
-        for (int i=0 ; i<BMP->Height ; i++)
+		for (int i=0 ; i<BMP->Height ; i++)
 		{
 			for (int j=0 ; j<BMP->Width ; j++)
 			{
@@ -552,7 +602,36 @@ void __fastcall TForm1::Button4Click(TObject *Sender)
 		else
 			Memo1->Lines->Add("解密失敗");
 	}
-    Image3 -> Picture -> Assign(M);
+	else if(RadioButton4->Checked)
+	{
+		for (int i=0 ; i<BMP->Height ; i++)
+		{
+			for (int j=0 ; j<BMP->Width ; j++)
+			{
+				M -> Canvas -> Pixels[j][i] = (TColor)RGB(0, 0, 0);
+			}
+		}
+		t_begin=clock();
+		AB(M,BMP,count);
+		t_end=clock();
+		Memo1->Lines->Add("A-B解密 CPMU time (sec.) = "+FloatToStr((float)(t_end-t_begin)/CLOCKS_PER_SEC));
+		for (int i=0 ; i<BMP->Height ; i++)
+		{
+			for (int j=0 ; j<BMP->Width ; j++)
+			{
+				if(M -> Canvas -> Pixels[j][i]!=BMP -> Canvas -> Pixels[j][i])
+				{
+					correct=0;
+					break;
+				}
+			}
+		}
+		if(correct)
+			Memo1->Lines->Add("解密成功");
+		else
+			Memo1->Lines->Add("解密失敗");
+	}
+	Image3 -> Picture -> Assign(M);
 	PageControl2->ActivePage = TabSheet6;
 }
 //---------------------------------------------------------------------------
