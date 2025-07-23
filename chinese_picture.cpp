@@ -171,8 +171,8 @@ void CRT_P(Graphics::TBitmap * M, Graphics::TBitmap * BMP,unsigned char count)
 		}
 	}
 }
-unsigned int modinv(unsigned int a, unsigned int m) {
-	int m0 = m, t, q;
+unsigned long long modinv(unsigned long long a, unsigned int m) {
+	unsigned long long m0 = m, t, q;
 	int x0 = 0, x1 = 1;
 
 	if (m == 1) return 0;
@@ -200,10 +200,12 @@ unsigned long long CRT_PN(unsigned long long Q,unsigned char count)
 	unsigned long long sum = 0;
 	for (int i = 0; i < count; i++)
 	{
-		unsigned int mi = Q / primenumbers[mark[i]];
+		unsigned long long mi = Q / primenumbers[mark[i]];
 		unsigned int inv = modinv(mi, primenumbers[mark[i]]);
-		table[i]= (unsigned long long)mi * (unsigned long long)inv;
-		sum += (unsigned long long)mi * (unsigned long long)inv * (unsigned long long)pmark[mark[i]];
+		table[i]= mi * (unsigned long long)inv;
+		sum += table[i] * (unsigned long long)pmark[mark[i]];
+		Form1->Memo1->Lines->Add(IntToStr(i)+": sum1:"+UIntToStr(sum)+" ,sum2: "+UIntToStr(sum % Q));
+		sum=sum % Q;
 		//Form1->Memo1->Lines->Add(IntToStr(i)+": mi:"+IntToStr((int)mi)+" ,inv: "+IntToStr((int)inv)+" ,sumi : "+UIntToStr(sum));
 	}
 	return sum % Q;
@@ -354,6 +356,11 @@ void __fastcall TForm1::Button3Click(TObject *Sender)
 	d=StrToInt(Edit7->Text);
 	n=StrToInt(Edit6->Text);
 	k=StrToInt(Edit4->Text);
+	if(k>n)
+	{
+		ShowMessage("k必須小於等於n");
+        return;
+    }
 	n1=n;
 	allocateDatap(datap, BMP->Height, BMP->Width, n, 3); // 分配所需的空間
 	unsigned long long p;
@@ -429,11 +436,11 @@ void __fastcall TForm1::Button3Click(TObject *Sender)
 	}
 	else if(RadioButton4->Checked)
 	{
-		n=4;
-		k=3;
+		//n=4;
+		//k=3;
+		unsigned long long lower,upper;
 		t_begin=clock();
-		int loop=0;
-		/*while(!validRange && loop<100)
+		while(!validRange)
 		{
             alphaval=1,betaval=1;
 			for (int i = 0; i < 100; i++)
@@ -457,17 +464,18 @@ void __fastcall TForm1::Button3Click(TObject *Sender)
 					alphaval=alphaval*(unsigned long long)primenumbers[i];
 			}
 			// 用 mt19937 產生 t（0~9）
-			//std::uniform_int_distribution<unsigned int> distP(0, 9);  // 產生範圍 0~9 的整數
-			//unsigned int p = distP(g);
-			//primenumbers[n] = alltPrimes[p];
-			if (betaval/alphaval>256){
+			std::uniform_int_distribution<unsigned int> distP(0, 9);  // 產生範圍 0~9 的整數
+			unsigned int p = distP(g);
+			primenumbers[n] = alltPrimes[p];
+			lower = alphaval/(unsigned long long)primenumbers[n] + 1;
+			upper = (betaval-256)/(unsigned long long)primenumbers[n] - 1;
+			if (lower<upper&&alphaval<betaval){
 				validRange = true;
 			}
-            Memo1->Lines->Add("betaval/alphaval:"+UIntToStr(betaval/alphaval)+"正確alphaval:"+UIntToStr(alphaval)+"正確betaval:"+UIntToStr(betaval));
-            loop++;
-		}*/
-		//Memo1->Lines->Add("p: "+UIntToStr(primenumbers[n]));
-		primenumbers[0]=202;
+			Memo1->Lines->Add(/*"betaval/alphaval:"+UIntToStr(betaval/alphaval)+*/"正確alphaval:"+UIntToStr(alphaval)+"正確betaval:"+UIntToStr(betaval));
+		}
+		Memo1->Lines->Add("p: "+UIntToStr(primenumbers[n]));
+		/*primenumbers[0]=202;
 		primenumbers[1]=209;
 		primenumbers[2]=217;
 		primenumbers[3]=255;
@@ -478,15 +486,15 @@ void __fastcall TForm1::Button3Click(TObject *Sender)
 				betaval=betaval*(unsigned long long)primenumbers[i];
 			if(i>n-k)
 				alphaval=alphaval*(unsigned long long)primenumbers[i];
-		}
+		}*/
 		std::random_device rd;  // 隨機種子來源（硬體隨機）
 		std::mt19937 gen(rd()); // 隨機數產生器（梅森旋轉法）
 		//std::uniform_int_distribution<unsigned int> distP(256, betaval/alphaval); // 定義在 alpha 到 beta 間的整數分布
 		//primenumbers[n] = distP(gen); // 產生一個隨機整數
 		Memo1->Lines->Add("正確p:"+UIntToStr(primenumbers[n])+"正確alphaval:"+UIntToStr(alphaval)+"正確betaval:"+UIntToStr(betaval));
-		unsigned long long lower = alphaval/(unsigned long long)primenumbers[n] + 1;
-		unsigned long long upper = (betaval-256)/(unsigned long long)primenumbers[n] - 1;
-		//Memo1->Lines->Add("正確lower:"+UIntToStr(lower)+"正確upper:"+UIntToStr(upper));
+		//unsigned long long lower = alphaval/(unsigned long long)primenumbers[n] + 1;
+		//unsigned long long upper = (betaval-256)/(unsigned long long)primenumbers[n] - 1;
+		Memo1->Lines->Add("正確lower:"+UIntToStr(lower)+"正確upper:"+UIntToStr(upper));
 		std::uniform_int_distribution<unsigned long long> distA(lower, upper); // 定義在 alpha 到 beta 間的整數分布
 		t_end=clock();
 		Memo1->Lines->Add("選取適當質數CPU time (sec.) = "+FloatToStr((float)(t_end-t_begin)/CLOCKS_PER_SEC));
